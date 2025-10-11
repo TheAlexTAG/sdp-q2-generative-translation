@@ -1,0 +1,19 @@
+{
+  "name": "sdp-q2-generative-translation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev": "concurrently -k -n WEB,API -c cyan,magenta \"pnpm dev:web\" \"pnpm dev:api\"",
+    "build": "pnpm -r build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.18.2",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
