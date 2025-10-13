@@ -1,4 +1,5 @@
 import { Outlet, NavLink } from "react-router-dom";
+
 export default function App() {
   return (
     <div className="app">
@@ -7,8 +8,18 @@ export default function App() {
           <NavLink to="/" className="brand">
             Q2
           </NavLink>
-          <NavLink to="/translate">Translate</NavLink>
-          <NavLink to="/about">About</NavLink>
+          <NavLink
+            to="/translate"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            Translate
+          </NavLink>
+          <NavLink
+            to="/about"
+            className={({ isActive }) => (isActive ? "active" : "")}
+          >
+            About
+          </NavLink>
         </nav>
       </header>
       <main className="main">

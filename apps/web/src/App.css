@@ -32,6 +32,14 @@ body {
   display: flex;
   gap: 16px;
 }
+
+.nav a {
+  text-decoration: none;
+}
+.nav a.active {
+  text-decoration: underline;
+}
+
 .brand {
   font-weight: 600;
 }

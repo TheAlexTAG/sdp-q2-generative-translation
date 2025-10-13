@@ -1,0 +1,40 @@
+.page {
+  display: grid;
+  gap: 12px;
+}
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.button {
+  width: fit-content;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.box {
+  min-height: 80px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  white-space: pre-wrap;
+}

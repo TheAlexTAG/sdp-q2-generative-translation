@@ -1,0 +1,14 @@
+.page {
+  display: grid;
+  gap: 8px;
+}
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+}
+.subtitle {
+  opacity: 0.8;
+  font-size: 14px;
+  margin: 0;
+}

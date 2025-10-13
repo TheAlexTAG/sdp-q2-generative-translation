@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import styles from "./Translate.module.css";
 
 export default function Translate() {
   const [src, setSrc] = useState("");
@@ -21,22 +22,25 @@ export default function Translate() {
   }
 
   return (
-    <div className="page">
-      <h2>Translate</h2>
+    <div className={styles.page}>
+      <h2 className={styles.title}>Translate</h2>
+
       <textarea
-        className="textarea"
+        className={styles.textarea}
         placeholder="Inserisci testo in italiano…"
         value={src}
         onChange={(e) => setSrc(e.target.value)}
       />
+
       <button
-        className="button"
+        className={styles.button}
         disabled={loading || !src.trim()}
         onClick={handleTranslate}
       >
         {loading ? "Translating…" : "Translate"}
       </button>
-      <div className="box">{dst}</div>
+
+      <div className={styles.box}>{dst}</div>
     </div>
   );
 }
