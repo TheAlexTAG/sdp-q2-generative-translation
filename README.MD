@@ -47,9 +47,7 @@ uvicorn main:app --host 0.0.0.0 --port 6001
 
 ## Test the service
 
-After starting the server (`uvicorn main:app --host 0.0.0.0 --port 6001`), you can verify it with one of the following:
-
-**PowerShell (prints just the translated string):**
+After starting the server (`uvicorn main:app --host 0.0.0.0 --port 6001`), you can verify it with:
 
 ```powershell
 (Invoke-RestMethod -Uri "http://localhost:6001/translate" -Method Post -ContentType "application/json" -Body '{"text":"Ciao mondo","src_lang":"it","tgt_lang":"en"}').translation
