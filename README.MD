@@ -59,4 +59,6 @@ After starting the server (`uvicorn main:app --host 0.0.0.0 --port 6001`), you c
 
 To return to the deafult cmd, simply run:
 
+```powershell
 deactivate
+```
