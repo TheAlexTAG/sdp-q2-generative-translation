@@ -38,6 +38,24 @@ apps/mt/ct2_models/       # converted CTranslate2 models (HUGE)
 apps/mt/registry.tsv      # generated; re-created by convert.py
 
 # -------------------------
+# LLM (llama.cpp-based)
+# -------------------------
+apps/llm/__pycache__/
+apps/llm/.venv/
+apps/llm/venv/
+apps/llm/*.log
+
+# llama.cpp binaries / builds (never commit)
+llama.cpp/
+llama.cpp/build/
+llama-server.exe
+
+# Local models (HUGE)
+models/
+*.gguf
+
+
+# -------------------------
 # Env / secrets
 # -------------------------
 .env
