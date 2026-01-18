@@ -105,7 +105,7 @@ uvicorn main:app --host 127.0.0.1 --port 8001
 
 Health check
 
-```powershell
+```http
 GET /health
 ```
 
@@ -121,7 +121,7 @@ Response:
 
 Single translation
 
-```powershell
+```http
 POST /translate
 ```
 
@@ -174,6 +174,8 @@ Response
   "translations": ["Salva le modifiche", "Annuler"]
 }
 ```
+
+---
 
 ## Prompting Strategy
 
