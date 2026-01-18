@@ -144,11 +144,12 @@ Response:
 ```
 
 Batch translation
-Request
 
 ```http
 POST /translate_batch
 ```
+
+Request
 
 ```json
 {
