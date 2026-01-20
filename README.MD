@@ -61,17 +61,60 @@ Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
 Source:
 https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
 
+Go to Files and versions and download exactly:
+
+```text
+Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+```
+
 Place the file somewhere on your machine, e.g.:
 
 ```
 C:\models\llama3\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
 ```
 
+or (Linux / macOS):
+
+```text
+~/models/llama3/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+```
+
 ---
 
-## Step 2 — Run llama.cpp Server
+## Step 2 — Build and Run llama.cpp Server
 
 You must build `llama.cpp` with server support.
+
+### Step 2.1 Clone and Build llama.cpp
+
+llama.cpp is not included in this repository and must be built separately.
+
+From any directory outside this repo:
+
+```bash
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp
+```
+
+Create a build directory and compile with CUDA support
+(safe even if CUDA is not available at runtime):
+
+```bash
+mkdir build
+cd build
+cmake .. -DLLAMA_CUDA=ON
+cmake --build . --config Release
+```
+
+After a successful build, you should see:
+
+```text
+build/bin/llama-server
+```
+
+(or `llama-server.exe` on Windows)
+
+### Step 2.2 Run the LLaMA Server
 
 From the llama.cpp build directory, run:
 
@@ -82,6 +125,16 @@ llama-server.exe ^
   --ctx-size 4096 ^
   --n-gpu-layers 999
 ```
+
+Notes
+
+- If an NVIDIA GPU is available, CUDA is used automatically
+
+- If not, the server falls back to CPU execution
+
+- The same command works in both cases
+
+- Leave this terminal running
 
 If successful, the LLM server will be available at:
 
