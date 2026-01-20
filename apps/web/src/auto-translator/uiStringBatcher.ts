@@ -4,7 +4,7 @@ export function createUiStringBatcher(
   flushDelayMs: number,
   onFlush: (batch: UiString[]) => void,
 ) {
-  const buffer: UiString[] = [];
+  const buffer = new Map<Text | HTMLElement, UiString>();
   let timer: number | null = null;
 
   function scheduleFlush() {
@@ -12,16 +12,18 @@ export function createUiStringBatcher(
 
     timer = window.setTimeout(() => {
       timer = null;
-      if (buffer.length === 0) return;
+      if (buffer.size === 0) return;
 
-      const batch = buffer.splice(0, buffer.length);
+      const batch = Array.from(buffer.values());
+      buffer.clear();
       onFlush(batch);
     }, flushDelayMs);
   }
 
   return {
     push(s: UiString) {
-      buffer.push(s);
+      const key = s.kind === "text" ? s.node : s.el;
+      buffer.set(key, s);
       scheduleFlush();
     },
   };

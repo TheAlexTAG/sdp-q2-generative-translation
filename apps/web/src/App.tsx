@@ -1,48 +1,21 @@
-import { useEffect } from "react";
-import { startDomTextObserver } from "./translation/domTextObserver";
-import { Outlet, NavLink } from "react-router-dom";
-import { createUiStringBatcher } from "./translation/uiStringBatcher";
-import { translateBatch } from "./translation/translationClient";
-import { extractPlainText } from "./translation/llmOutput";
-
-const TRANSLATION_LOCK = "__translation_locked__";
+import { useEffect, useState } from "react";
+import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { translateBatch } from "./auto-translator/translationClient";
+import { installAutoTranslator } from "./auto-translator/installAutoTranslator";
 
 export default function App() {
+  const location = useLocation();
+  const [targetLang, setTargetLang] = useState("it");
+
   useEffect(() => {
-    const batcher = createUiStringBatcher(300, async (batch) => {
-      observer.pause(); // 🔒 stop observing OUR OWN mutations
-
-      try {
-        const items = batch.map((b) => ({
-          text: b.text,
-          src_lang: "en",
-          tgt_lang: "it",
-        }));
-
-        const res = await translateBatch(items);
-
-        res.translations.forEach((translated, i) => {
-          const original = batch[i];
-          const clean = extractPlainText(translated);
-
-          if (original.kind === "text") {
-            original.node.textContent = clean;
-            original.parent.dataset.__translated__ = "true";
-          }
-        });
-      } finally {
-        observer.resume(); // 🔓 re-enable observer
-      }
+    console.log("im here");
+    const cleanup = installAutoTranslator({
+      srcLang: "auto",
+      tgtLang: targetLang,
+      translateBatch,
     });
-
-    let observer: ReturnType<typeof startDomTextObserver>;
-
-    requestAnimationFrame(() => {
-      observer = startDomTextObserver((s) => batcher.push(s));
-    });
-
-    return () => observer?.stop();
-  }, []);
+    return cleanup;
+  }, [location.pathname, targetLang]);
 
   return (
     <div className="app">
@@ -53,6 +26,15 @@ export default function App() {
           </NavLink>
           <NavLink to="/translate">Translate</NavLink>
           <NavLink to="/about">About</NavLink>
+          <select
+            value={targetLang}
+            onChange={(e) => setTargetLang(e.target.value)}
+          >
+            <option value="it">Italiano</option>
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+          </select>
         </nav>
       </header>
       <main className="main">

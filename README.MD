@@ -1,64 +1,210 @@
-# MT Service — CTranslate2 + OPUS-MT (it↔en)
+# SDP Q2 – Generative Translation (LLM-based)
 
-Minimal translation microservice that powers the demo app.
+This project implements a **local, LLM-based automatic GUI translation system**.
 
-- **Models:** Helsinki-NLP OPUS-MT (Marian) `it→en`, `en→it`
-- **Runtime:** CTranslate2 (INT8, **CPU by default**)
-- **Server:** FastAPI
-- **Location:** `apps/mt`
+It consists of:
 
-> Large artifacts (models, venv, registry) are **gitignored**. Each dev converts locally.
+- a **TypeScript auto-translation library** (DOM observer + batching)
+- a **React demo app**
+- a **local Python backend** connected to **llama.cpp**
+- a **locally hosted LLaMA model** (no cloud APIs)
+
+The system automatically detects visible UI text and translates it **on the fly**, irrespective of the original source language.
+
+---
+
+## Repository Structure
+
+DO NOT CONSIDER MT FOLDER, NOT AN ACTUAL LLM, OLD IMPLEMENTATION
+
+```
+.
+├── apps/
+│   ├── web/                  # React demo app
+│   │   └── src/
+│   │       └── auto-translator/   # Auto-translation library (TS)
+│   └── llm/                  # Python backend (FastAPI)
+│       ├── main.py
+│       └── server.py
+├── pnpm-workspace.yaml
+└── README.md
+```
 
 ---
 
 ## Requirements
 
-- **Python** 3.12 or 3.13
-- **pip** 23+
-- Windows PowerShell or macOS/Linux shell
-- Internet access (to download models from Hugging Face)
+### System
+
+- Windows / Linux
+- GPU recommended (CUDA)
+
+### Software
+
+- **Node.js** ≥ 18
+- **pnpm**
+- **Python** ≥ 3.10
+- **llama.cpp** (compiled with server support)
 
 ---
 
-## Quick Start
+## Step 1 — Download the LLaMA Model
 
-```powershell
-# 0) go to the service
-cd apps\mt
+Download a **GGUF Instruct model** from Hugging Face.
 
-# 1) create + activate venv
-py -3.12 -m venv .venv            # or: py -3.13 -m venv .venv
-. .\.venv\Scripts\Activate.ps1     # macOS/Linux: source .venv/bin/activate
+Recommended (used in this project):
 
-# 2) install deps (CPU)
-python -m pip install --upgrade pip
-python -m pip install "torch>=2.6,<2.7" --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -r requirements.txt
-
-# (optional) verify torch
-python -m pip show torch
-
-# 3) download & convert models → creates ct2 models + registry.tsv
-python convert.py
-
-# 4) run the API
-uvicorn main:app --host 0.0.0.0 --port 6001
+```
+Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
 ```
 
-## Test the service
+Source:
+[https://huggingface.co/meta-llama](https://huggingface.co/meta-llama)
 
-After starting the server (`uvicorn main:app --host 0.0.0.0 --port 6001`), you can verify it with:
+Place the file somewhere on your machine, e.g.:
 
-```powershell
-(Invoke-RestMethod -Uri "http://localhost:6001/translate" -Method Post -ContentType "application/json" -Body '{"text":"Ciao mondo","src_lang":"it","tgt_lang":"en"}').translation
+```
+C:\models\llama3\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
 ```
 
 ---
 
-## Deactivate the venv
+## Step 2 — Run llama.cpp Server
 
-To return to the deafult cmd, simply run:
+You must build `llama.cpp` with server support.
 
-```powershell
-deactivate
+From the llama.cpp build directory, run:
+
+```bash
+llama-server.exe ^
+  -m C:\models\llama3\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf ^
+  --port 7001 ^
+  --ctx-size 4096 ^
+  --n-gpu-layers 999
 ```
+
+If successful, the LLM server will be available at:
+
+```
+http://localhost:7001
+```
+
+---
+
+## Step 3 — Run the Python Backend
+
+Navigate to the backend folder:
+
+```bash
+cd apps/llm
+```
+
+Install dependencies:
+
+```bash
+pip install fastapi uvicorn requests
+```
+
+Run the backend:
+
+```bash
+uvicorn main:app --port 8001
+```
+
+Health check:
+
+```
+http://localhost:8001/health
+```
+
+---
+
+## Step 4 — Install Frontend Dependencies
+
+From the **project root**:
+
+```bash
+pnpm install
+```
+
+---
+
+## Step 5 — Run the Web App
+
+From the project root:
+
+```bash
+pnpm --filter web dev
+```
+
+Alternatively:
+
+```bash
+cd apps/web
+pnpm dev
+```
+
+The app will be available at:
+
+```
+http://localhost:5173
+```
+
+---
+
+## How the System Works
+
+### Frontend (Auto Translator)
+
+- Observes DOM mutations
+- Detects new text nodes and placeholders
+- Batches text efficiently
+- Sends translation requests to backend
+- Injects translated text back into the DOM
+- Prevents re-translation loops
+
+Language can be changed at runtime via the UI selector.
+
+---
+
+### Backend (LLM Translation)
+
+- FastAPI server
+- Receives translation batches
+- Calls local llama.cpp server
+- Forces **pure translation output**
+- No explanations, no JSON, no tool calls
+
+---
+
+## Important Notes
+
+- **No cloud APIs are used**
+- **Everything runs locally**
+- Source language is auto-detected
+- Target language is user-selected
+- Translation is performed at runtime on visible UI text
+
+---
+
+## For the Exam / Evaluation
+
+To test the project, the evaluator must:
+
+1. Download a GGUF LLaMA model
+2. Run `llama-server`
+3. Run the Python backend
+4. Run the React app
+
+This setup demonstrates:
+
+- local LLM usage
+- real-time UI translation
+- clean separation of frontend / backend
+- library-style frontend architecture
+
+---
+
+## License
+
+Academic / educational use only.
