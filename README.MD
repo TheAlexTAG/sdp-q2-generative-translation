@@ -119,7 +119,7 @@ build/bin/llama-server
 From the llama.cpp build directory, run:
 
 ```bash
-llama-server.exe `
+.\llama-server.exe `
   -m C:\models\llama3\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf `
   --port 7001 `
   --ctx-size 4096 `
