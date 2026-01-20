@@ -59,7 +59,7 @@ Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
 ```
 
 Source:
-[https://huggingface.co/meta-llama](https://huggingface.co/meta-llama)
+https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF
 
 Place the file somewhere on your machine, e.g.:
 
