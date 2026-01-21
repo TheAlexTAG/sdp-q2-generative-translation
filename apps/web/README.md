@@ -110,7 +110,7 @@ The backend also caches translations (LRU+TTL); see `apps/llm/README.md` and `do
 
 ## Health / Status
 
-`apps/web/src/components/ConnectionStatus/ConnectionStatus.tsx` polls every 2.5s:
+`apps/web/src/components/ConnectionStatus/ConnectionStatus.tsx` polls every 10s:
 
 - `/api/health` (backend)
 - `/api/health/llama` (llama-server reachability)

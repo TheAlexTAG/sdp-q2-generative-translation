@@ -45,7 +45,7 @@ export function LlmActivityProvider({
         }
       },
     };
-  }, [inFlightCount]);
+  }, [inFlightCount, holdBusyUntilMs]);
 
   return (
     <LlmActivityContext.Provider value={api}>

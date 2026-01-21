@@ -148,13 +148,14 @@ The backend uses a strict “translation-only” prompt and then applies cleanup
 
 - It strips wrapper markers `<<TEXT_TO_TRANSLATE>> … <<END_TEXT>>`.
 - It truncates common “explanation” patterns (to reduce meta output).
-- It detects tool-call-looking JSON and re-requests with tools disabled.
+- Tools are disabled for translation calls (to prevent tool-call detours).
+- `max_tokens` is dynamically capped (short strings get a small cap; long paragraphs get a larger cap).
 
 ### Backend limitations
 
 - **Single worker** means only one llama.cpp call at a time from this backend process.
 - Cache is in-memory (no persistence, no cross-machine sharing).
-- `max_tokens` is capped in `server.py` (affects very long outputs).
+- Very long outputs can hit the translation cap in `apps/llm/server.py` (defaults to a heuristic up to ~512 tokens).
 
 ---
 
@@ -277,7 +278,9 @@ Notes:
 - `/api/health` (backend)
 - `/api/health/llama` (llama.cpp reachability)
 
-Polling interval: 2500ms (2.5 seconds).
+Polling interval: 10,000ms (10 seconds).
+
+Note: `apps/llm/main.py` also caches `/health/llama` for ~2s to avoid hammering `llama-server` if anything polls too frequently.
 
 ---
 

@@ -1,15 +1,68 @@
 .page {
   display: grid;
+  gap: 28px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 24px;
+}
+
+.hero {
+  display: grid;
   gap: 8px;
 }
+
 .title {
-  font-size: 24px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+
+.tagline {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.section {
+  display: grid;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-size: 18px;
   font-weight: 700;
   margin: 0;
-  letter-spacing: -0.02em;
 }
-.subtitle {
+
+.text {
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+  color: var(--text);
+}
+
+.list {
+  padding-left: 18px;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.list li {
+  line-height: 1.5;
+}
+
+.footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.credits {
+  font-size: 13px;
   color: var(--muted);
-  font-size: 14px;
   margin: 0;
 }

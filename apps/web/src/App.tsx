@@ -5,8 +5,8 @@ import { installAutoTranslator } from "./auto-translator/installAutoTranslator";
 import { useLlmActivity } from "./llmActivity";
 import { LlmLoadingPill } from "./components/LlmLoadingPill/LlmLoadingPill";
 import { LlmTopBar } from "./components/LlmTopBar/LlmTopBar";
-import { LlmStatusText } from "./components/LlmStatusText/LlmStatusText";
-import { ConnectionStatus } from "./components/ConnectionStatus/ConnectionStatus";
+import { LlmStatusText } from "./components/LlmStatusText/LlmStatusTextFixed";
+import { ConnectionStatus } from "./components/ConnectionStatus/ConnectionStatusFixed";
 import {
   LanguageSelect,
   type LanguageCode,
@@ -21,7 +21,8 @@ export default function App() {
     const cleanup = installAutoTranslator({
       srcLang: "auto",
       tgtLang: targetLang,
-      translateBatch: (items) => llm.run(() => translateBatch(items)),
+      translateBatch: (items, opts) => llm.run(() => translateBatch(items, opts)),
+      flushDelayMs: 120,
     });
     return cleanup;
   }, [location.pathname, targetLang]);

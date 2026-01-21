@@ -181,9 +181,7 @@ export function LanguageSelect({
               <opt.Flag />
               <div>
                 <div>{opt.label}</div>
-                {opt.secondary ? (
-                  <span className={styles.itemSmall}>{opt.secondary}</span>
-                ) : null}
+                <span className={styles.itemSmall}>{opt.code.toUpperCase()}</span>
               </div>
             </button>
           ))}

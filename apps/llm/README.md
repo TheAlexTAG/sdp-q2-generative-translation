@@ -194,7 +194,8 @@ Supported priorities:
 
 Notes:
 
-- This backend intentionally runs with one worker (`workers=1`) to keep llama.cpp load stable and make prioritization deterministic.
+- This backend defaults to one worker to keep llama.cpp load stable and make prioritization deterministic.
+- You can increase throughput for long batches (e.g. a full story) by setting `LLM_QUEUE_WORKERS` (default `1`). Start with `2`.
 
 ---
 
@@ -243,7 +244,7 @@ The strategy is optimized for short-to-medium UI strings such as:
 ## Notes & Limitations
 
 - Translation quality depends on the selected LLaMA model and its quantization
-- Very long inputs may require increasing `max_tokens`
+- Very long inputs/outputs can hit the translation cap (see `apps/llm/server.py` heuristic up to ~512 tokens)
 - Language support is **model-driven**, not constrained to fixed language pairs
 - The service is intended for **development and experimentation**, not
   large-scale production deployment

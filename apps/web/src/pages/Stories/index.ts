@@ -1,2 +1,2 @@
-export { default } from "./StoriesAuto";
+export { default } from "./StoriesAutoClean";
 export * from "./storiesData";

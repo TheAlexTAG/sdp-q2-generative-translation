@@ -52,6 +52,7 @@ function isTranslatableText(raw: string) {
 
 export function startDomTextObserver(onDetected: (s: UiString) => void) {
   let enabled = true;
+  const root: Element = document.querySelector("main") ?? document.body;
 
   function pause() {
     enabled = false;
@@ -69,6 +70,7 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
 
   function emitTextNode(textNode: Text) {
     if (!enabled) return;
+    if (translatedTextNodes.get(textNode)) return;
 
     const parent = textNode.parentElement;
     if (!parent) return;
@@ -88,6 +90,7 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
 
   function emitPlaceholder(el: HTMLInputElement | HTMLTextAreaElement) {
     if (!enabled) return;
+    if (translatedPlaceholderEls.get(el)) return;
     if (shouldIgnoreElement(el)) return;
 
     const ph = (el.getAttribute("placeholder") ?? "").trim();
@@ -138,7 +141,7 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
     }
   });
 
-  observer.observe(document.body, {
+  observer.observe(root, {
     childList: true,
     subtree: true,
     characterData: true,
@@ -146,7 +149,51 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
     attributeFilter: ["placeholder"],
   });
 
-  walk(document.body);
+  function initialScanChunked() {
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    );
+
+    const step = (deadline?: { timeRemaining?: () => number }) => {
+      if (!enabled) return;
+
+      const budgetMs =
+        typeof deadline?.timeRemaining === "function"
+          ? Math.min(12, deadline.timeRemaining())
+          : 8;
+
+      const endAt = performance.now() + Math.max(2, budgetMs);
+
+      while (performance.now() < endAt) {
+        const n = walker.nextNode();
+        if (!n) return;
+
+        if (n.nodeType === Node.TEXT_NODE) {
+          emitTextNode(n as Text);
+          continue;
+        }
+
+        if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
+          emitPlaceholder(n);
+        }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ric2: unknown = (window as any).requestIdleCallback;
+      if (typeof ric2 === "function") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ric2 as any)(step, { timeout: 500 });
+      } else {
+        setTimeout(() => step(), 0);
+      }
+    };
+
+    step();
+  }
+
+  // Defer initial scan so first paint is not blocked.
+  setTimeout(initialScanChunked, 0);
 
   return {
     stop: () => observer.disconnect(),

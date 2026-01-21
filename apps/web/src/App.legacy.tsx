@@ -22,7 +22,7 @@ export default function App() {
     const cleanup = installAutoTranslator({
       srcLang: "auto",
       tgtLang: targetLang,
-      translateBatch: (items) => llm.run(() => translateBatch(items)),
+      translateBatch: (items, opts) => llm.run(() => translateBatch(items, opts)),
     });
     return cleanup;
   }, [location.pathname, targetLang]);

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLlmActivity } from "../../llmActivity";
 import styles from "./Chat.module.css";
 
@@ -67,6 +67,12 @@ export default function Chat() {
   ]);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const viewMessages = useMemo(
     () => messages.filter((m) => m.role !== "system"),

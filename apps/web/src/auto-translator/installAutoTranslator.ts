@@ -2,6 +2,7 @@ import {
   startDomTextObserver,
   markTranslated,
   preMarkTranslated,
+  getTranslatedMark,
   type UiString,
   resetTranslatedState,
 } from "./domTextObserver";
@@ -16,6 +17,7 @@ type TranslatorItem = {
 
 type TranslateBatchFn = (
   items: TranslatorItem[],
+  opts?: { signal?: AbortSignal },
 ) => Promise<{ translations: string[] }>;
 
 export type InstallAutoTranslatorOptions = {
@@ -24,6 +26,23 @@ export type InstallAutoTranslatorOptions = {
   translateBatch: TranslateBatchFn;
   flushDelayMs?: number;
 };
+
+function normalizeForFingerprint(s: string) {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function fnv1a32Hex(s: string) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    hash ^= s.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function fingerprintText(s: string) {
+  return fnv1a32Hex(normalizeForFingerprint(s));
+}
 
 function normalizeForBackend(s: string) {
   return s
@@ -68,6 +87,7 @@ export function installAutoTranslator({
   flushDelayMs = 300,
 }: InstallAutoTranslatorOptions) {
   let observer: ReturnType<typeof startDomTextObserver> | null = null;
+  const abortController = new AbortController();
 
   // 🔥 RESET EVERYTHING WHEN (RE)INSTALLING
   resetTranslatedState();
@@ -89,13 +109,18 @@ export function installAutoTranslator({
   };
 
   const pendingByKey = new Map<string, PendingKey>();
-  const waitingNodesByKey = new Map<string, UiString[]>();
+  const waitingNodesByKey = new Map<
+    string,
+    { node: UiString; expectedFingerprint: string }[]
+  >();
 
   const queues: Record<Priority, PendingKey[]> = {
     critical: [],
     normal: [],
     background: [],
   };
+
+  const MAX_PENDING_KEYS = 2500;
 
   let stopped = false;
   let running = false;
@@ -125,14 +150,32 @@ export function installAutoTranslator({
     return "background";
   }
 
-  function applyToNode(s: UiString, translated: string) {
+  function currentUiText(s: UiString) {
+    if (s.kind === "text") return (s.node.textContent ?? "").trim();
+    return (s.el.getAttribute("placeholder") ?? "").trim();
+  }
+
+  function applyToNode(
+    s: UiString,
+    translated: string,
+    expectedFingerprint: string,
+  ) {
+    const current = currentUiText(s);
+    if (!current) return;
+
+    const currentFingerprint = fingerprintText(current);
+    if (currentFingerprint !== expectedFingerprint) {
+      return;
+    }
+
+    const translatedFingerprint = fingerprintText(translated);
     if (s.kind === "text") {
-      preMarkTranslated(s);
+      preMarkTranslated(s, tgtLang, translatedFingerprint);
       s.node.textContent = translated;
-      markTranslated(s);
+      markTranslated(s, tgtLang, translatedFingerprint);
     } else {
       s.el.setAttribute("placeholder", translated);
-      markTranslated(s);
+      markTranslated(s, tgtLang, translatedFingerprint);
     }
   }
 
@@ -149,17 +192,33 @@ export function installAutoTranslator({
   function enqueue(s: UiString) {
     const key = s.text;
 
+    // If this node/element already contains our translated output for the current
+    // target language, never re-queue it.
+    const existingMark = getTranslatedMark(s);
+    if (existingMark?.lang === tgtLang) {
+      const fp = fingerprintText(currentUiText(s));
+      if (fp && fp === existingMark.fingerprint) {
+        return;
+      }
+    }
+
+    const expectedFingerprint = fingerprintText(currentUiText(s));
+
+    const nextPriority = classifyPriority(s);
+    if (pendingByKey.size >= MAX_PENDING_KEYS && nextPriority === "background") {
+      return;
+    }
+
     const cached = translationCache.get(key);
     if (cached) {
-      applyToNode(s, cached);
+      applyToNode(s, cached, expectedFingerprint);
       return;
     }
 
     const waiting = waitingNodesByKey.get(key);
-    if (waiting) waiting.push(s);
-    else waitingNodesByKey.set(key, [s]);
+    if (waiting) waiting.push({ node: s, expectedFingerprint });
+    else waitingNodesByKey.set(key, [{ node: s, expectedFingerprint }]);
 
-    const nextPriority = classifyPriority(s);
     const nextScore = key.length;
 
     const existing = pendingByKey.get(key);
@@ -200,6 +259,35 @@ export function installAutoTranslator({
     schedule(nextPriority === "critical" ? 0 : flushDelayMs);
   }
 
+  function takeSmallestN(q: PendingKey[], n: number): PendingKey[] {
+    if (q.length <= n) return q.splice(0, q.length);
+
+    const best: PendingKey[] = [];
+
+    for (const item of q) {
+      if (best.length < n) {
+        best.push(item);
+        best.sort((a, b) => a.score - b.score);
+        continue;
+      }
+
+      if (item.score >= best[best.length - 1].score) continue;
+
+      best.push(item);
+      best.sort((a, b) => a.score - b.score);
+      best.length = n;
+    }
+
+    const selected = new Set(best);
+    const remaining: PendingKey[] = [];
+    for (const item of q) {
+      if (!selected.has(item)) remaining.push(item);
+    }
+    q.length = 0;
+    q.push(...remaining);
+    return best;
+  }
+
   function getNextBatch(): PendingKey[] | null {
     const priority: Priority | null = queues.critical.length
       ? "critical"
@@ -212,11 +300,9 @@ export function installAutoTranslator({
     if (!priority) return null;
 
     const batchSize =
-      priority === "critical" ? 6 : priority === "normal" ? 4 : 2;
+      priority === "critical" ? 10 : priority === "normal" ? 8 : 4;
 
-    const q = queues[priority];
-    q.sort((a, b) => a.score - b.score);
-    return q.splice(0, batchSize);
+    return takeSmallestN(queues[priority], batchSize);
   }
 
   async function processQueue() {
@@ -231,10 +317,14 @@ export function installAutoTranslator({
 
         let res: { translations: string[] } | null = null;
         try {
-          res = await translateBatch(batch.map((b) => b.item));
+          res = await translateBatch(batch.map((b) => b.item), {
+            signal: abortController.signal,
+          });
         } catch {
           res = null;
         }
+
+        if (stopped) break;
 
         observer?.pause();
         try {
@@ -249,8 +339,8 @@ export function installAutoTranslator({
             translationCache.set(b.key, translatedText);
 
             const waitingNow = waitingNodesByKey.get(b.key) ?? [];
-            for (const node of waitingNow) {
-              applyToNode(node, translatedText);
+            for (const { node, expectedFingerprint } of waitingNow) {
+              applyToNode(node, translatedText, expectedFingerprint);
             }
 
             waitingNodesByKey.delete(b.key);
@@ -274,6 +364,7 @@ export function installAutoTranslator({
 
   return () => {
     stopped = true;
+    abortController.abort();
     if (timer !== null) {
       window.clearTimeout(timer);
       timer = null;

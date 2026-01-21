@@ -74,7 +74,9 @@ class _PriorityWorkQueue:
                 self._q.task_done()
 
 
-_TRANSLATION_QUEUE = _PriorityWorkQueue(workers=1)
+_TRANSLATION_QUEUE = _PriorityWorkQueue(
+    workers=int(os.environ.get("LLM_QUEUE_WORKERS", "1") or "1")
+)
 
 
 def _normalize_for_cache(text: str) -> str:
@@ -163,13 +165,13 @@ def clean_translation(text: str) -> str:
 
     return t
 
-def call_llama(messages, *, allow_tools: bool):
+def call_llama(messages, *, allow_tools: bool, max_tokens: int = 256):
     payload = {
         "model": "llama",
         "messages": messages,
         "temperature": 0.1,
         "top_p": 0.9,
-        "max_tokens": 256,
+        "max_tokens": int(max_tokens),
     }
 
     # IMPORTANT
@@ -263,19 +265,11 @@ def _translate_with_llm_direct(text: str, src_lang: str | None, tgt_lang: str) -
         },
     ]
 
-    # FIRST CALL (tools allowed, model may attempt tool call)
-    raw = call_llama(messages, allow_tools=True)
-
-    # TOOL CALL DETECTED -> FORCE FINAL ANSWER
-    if is_tool_call(raw):
-        messages.append(
-            {
-                "role": "assistant",
-                "content": "Produce the final translated text now. "
-                           "Do not call tools. Output text only.",
-            }
-        )
-        raw = call_llama(messages, allow_tools=False)
+    # Dynamic cap: prevents runaway generations for short UI strings, while
+    # still allowing enough room for paragraph translations.
+    # Rough heuristic: translation length is usually within ~1x input tokens.
+    max_out = min(512, max(32, (len(text) // 2) + 32))
+    raw = call_llama(messages, allow_tools=False, max_tokens=max_out)
 
     return clean_translation(raw)
 
@@ -287,14 +281,35 @@ def translate_with_llm(
     *,
     priority: Priority = "normal",
 ) -> str:
+    fut = submit_translation_with_llm(
+        text,
+        src_lang,
+        tgt_lang,
+        priority=priority,
+    )
+
+    return fut.result()
+
+
+def submit_translation_with_llm(
+    text: str,
+    src_lang: str | None,
+    tgt_lang: str,
+    *,
+    priority: Priority = "normal",
+) -> Future[str]:
     # Fast exits happen outside the queue.
     src = (src_lang or "").strip().lower()
     tgt = (tgt_lang or "").strip().lower()
     if src and src != "auto" and tgt and src.split("-")[0] == tgt.split("-")[0]:
-        return text
+        fut: Future[str] = Future()
+        fut.set_result(text)
+        return fut
 
     if not should_translate(text):
-        return text
+        fut = Future()
+        fut.set_result(text)
+        return fut
 
     cache_key = (
         src if src and src != "auto" else "auto",
@@ -303,7 +318,9 @@ def translate_with_llm(
     )
     cached = _TRANSLATION_CACHE.get(cache_key)
     if cached is not None:
-        return cached
+        fut = Future()
+        fut.set_result(cached)
+        return fut
 
     if priority not in _PRIORITY_RANK:
         priority = "normal"
@@ -313,8 +330,13 @@ def translate_with_llm(
         fn=lambda: _translate_with_llm_direct(text, src_lang, tgt_lang),
     )
 
-    result = fut.result()
-    # Cache only if we actually translated / produced a non-empty output.
-    if isinstance(result, str) and result and result != text:
-        _TRANSLATION_CACHE.set(cache_key, result)
-    return result
+    def _cache_on_done(done: Future[str]) -> None:
+        try:
+            result = done.result()
+        except Exception:
+            return
+        if isinstance(result, str) and result and result != text:
+            _TRANSLATION_CACHE.set(cache_key, result)
+
+    fut.add_done_callback(_cache_on_done)
+    return fut
