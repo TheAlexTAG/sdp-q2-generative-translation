@@ -96,8 +96,10 @@ git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp
 ```
 
-Create a build directory and compile with CUDA support
-(safe even if CUDA is not available at runtime):
+#### Option A - Build with CUDA acceleration:
+
+- Requires: NVIDIA GPU
+- CUDA toolkit available at build time
 
 ```bash
 mkdir build
@@ -106,10 +108,23 @@ cmake .. -DLLAMA_CUDA=ON
 cmake --build . --config Release
 ```
 
+#### Option B - CPU-only build:
+
+- This option does NOT require CUDA and works on all machines
+
+```bash
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+```
+
 After a successful build, you should see:
 
 ```text
 build/bin/llama-server
+or
+build/bin/Release/llama-server
 ```
 
 (or `llama-server.exe` on Windows)
@@ -117,6 +132,8 @@ build/bin/llama-server
 ### Step 2.2 Run the LLaMA Server
 
 From the llama.cpp build directory, run:
+
+(Make sure to subsititute `C:\models\llama3\` with your actual model path)
 
 ```bash
 .\llama-server.exe `
@@ -180,7 +197,7 @@ From the **project root**:
 pnpm install
 ```
 
----
+## (if no pnpm available, feel free to use your preferred package manager)
 
 ## Step 5 — Run the Web App
 
