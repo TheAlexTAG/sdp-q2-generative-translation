@@ -96,7 +96,7 @@ git clone https://github.com/ggerganov/llama.cpp
 cd llama.cpp
 ```
 
-#### Option A - Build with CUDA acceleration:
+#### Option A — Build with CUDA acceleration:
 
 - Requires: NVIDIA GPU
 - CUDA toolkit available at build time
@@ -108,7 +108,7 @@ cmake .. -DLLAMA_CUDA=ON
 cmake --build . --config Release
 ```
 
-#### Option B - CPU-only build:
+#### Option B — CPU-only build:
 
 - This option does NOT require CUDA and works on all machines
 
@@ -135,7 +135,7 @@ From the llama.cpp build directory, run:
 
 - Note: Replace `C:\models\llama3\` with the path where you downloaded the model.
 
-#### Option A - CUDA build
+#### Option A — CUDA build
 
 Use this command only if `llama.cpp` was built with CUDA support.
 
@@ -149,7 +149,7 @@ Use this command only if `llama.cpp` was built with CUDA support.
 
 This offloads all model layers to the GPU for maximum performance.
 
-#### Option B - CPU-only build
+#### Option B — CPU-only build
 
 If `llama.cpp` was built without CUDA, run the server without GPU flags:
 
