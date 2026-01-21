@@ -133,7 +133,11 @@ build/bin/Release/llama-server
 
 From the llama.cpp build directory, run:
 
-(Make sure to subsititute `C:\models\llama3\` with your actual model path)
+- Note: Replace `C:\models\llama3\` with the path where you downloaded the model.
+
+#### Option A - CUDA build
+
+Use this command only if `llama.cpp` was built with CUDA support.
 
 ```bash
 .\llama-server.exe `
@@ -143,13 +147,27 @@ From the llama.cpp build directory, run:
   --n-gpu-layers 999
 ```
 
-Notes
+This offloads all model layers to the GPU for maximum performance.
 
-- If an NVIDIA GPU is available, CUDA is used automatically
+#### Option B - CPU-only build
 
-- If not, the server falls back to CPU execution
+If `llama.cpp` was built without CUDA, run the server without GPU flags:
 
-- The same command works in both cases
+```bash
+.\llama-server.exe `
+  -m C:\models\llama3\Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf `
+  --port 7001 `
+  --ctx-size 4096
+```
+
+#### Notes
+
+- `--n-gpu-layers` requires a CUDA-enabled build
+
+- CPU-only builds must not use GPU-related flags
+
+- If a CUDA build is used but no compatible GPU is found at runtime,
+  the server automatically falls back to CPU execution
 
 - Leave this terminal running
 
@@ -197,7 +215,7 @@ From the **project root**:
 pnpm install
 ```
 
-## (if no pnpm available, feel free to use your preferred package manager)
+(if no pnpm available, feel free to use your preferred package manager)
 
 ## Step 5 — Run the Web App
 
