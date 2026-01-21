@@ -1,8 +1,126 @@
 import requests
 import json
 import re
+import queue
+import threading
+import time
+import os
+from collections import OrderedDict
+from concurrent.futures import Future
+from dataclasses import dataclass, field
+from typing import Callable, Literal
 
 LLAMA_ENDPOINT = "http://127.0.0.1:7001/v1/chat/completions"
+LLAMA_BASE = "http://127.0.0.1:7001"
+
+Priority = Literal["critical", "normal", "background"]
+_PRIORITY_RANK: dict[Priority, int] = {
+    "critical": 0,
+    "normal": 1,
+    "background": 2,
+}
+
+
+@dataclass(order=True)
+class _QueuedWorkItem:
+    priority: int
+    seq: int
+    future: Future[str] = field(compare=False)
+    fn: Callable[[], str] = field(compare=False)
+
+
+class _PriorityWorkQueue:
+    def __init__(self, *, workers: int = 1):
+        self._seq = 0
+        self._seq_lock = threading.Lock()
+        self._q: queue.PriorityQueue[_QueuedWorkItem] = queue.PriorityQueue()
+        self._stop = threading.Event()
+
+        self._threads: list[threading.Thread] = []
+        for i in range(max(1, workers)):
+            t = threading.Thread(target=self._worker_loop, name=f"llm-queue-{i}", daemon=True)
+            t.start()
+            self._threads.append(t)
+
+    def _next_seq(self) -> int:
+        with self._seq_lock:
+            self._seq += 1
+            return self._seq
+
+    def submit(self, *, priority: Priority, fn: Callable[[], str]) -> Future[str]:
+        fut: Future[str] = Future()
+        item = _QueuedWorkItem(_PRIORITY_RANK[priority], self._next_seq(), fut, fn)
+        self._q.put(item)
+        return fut
+
+    def _worker_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                item = self._q.get(timeout=0.25)
+            except queue.Empty:
+                continue
+
+            try:
+                if not item.future.set_running_or_notify_cancel():
+                    continue
+
+                try:
+                    result = item.fn()
+                except Exception as e:
+                    item.future.set_exception(e)
+                else:
+                    item.future.set_result(result)
+            finally:
+                self._q.task_done()
+
+
+_TRANSLATION_QUEUE = _PriorityWorkQueue(workers=1)
+
+
+def _normalize_for_cache(text: str) -> str:
+    return (
+        text.replace("\u2014", " - ")
+        .replace("\u2013", " - ")
+        .replace("\u2015", " - ")
+        .replace("\u2212", " - ")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .strip()
+    )
+
+
+class _TranslationCache:
+    def __init__(self, *, max_entries: int, ttl_seconds: float):
+        self._max_entries = max(1, int(max_entries))
+        self._ttl_seconds = max(1.0, float(ttl_seconds))
+        self._lock = threading.Lock()
+        self._items: "OrderedDict[tuple[str, str, str], tuple[float, str]]" = OrderedDict()
+
+    def get(self, key: tuple[str, str, str]) -> str | None:
+        now = time.time()
+        with self._lock:
+            entry = self._items.get(key)
+            if entry is None:
+                return None
+            ts, value = entry
+            if now - ts > self._ttl_seconds:
+                del self._items[key]
+                return None
+            self._items.move_to_end(key)
+            return value
+
+    def set(self, key: tuple[str, str, str], value: str) -> None:
+        now = time.time()
+        with self._lock:
+            self._items[key] = (now, value)
+            self._items.move_to_end(key)
+            while len(self._items) > self._max_entries:
+                self._items.popitem(last=False)
+
+
+_CACHE_MAX = int(os.environ.get("TRANSLATION_CACHE_MAX", "5000"))
+_CACHE_TTL = float(os.environ.get("TRANSLATION_CACHE_TTL_SECONDS", str(6 * 60 * 60)))
+_TRANSLATION_CACHE = _TranslationCache(max_entries=_CACHE_MAX, ttl_seconds=_CACHE_TTL)
 
 def is_tool_call(text: str) -> bool:
     text = text.strip()
@@ -63,6 +181,37 @@ def call_llama(messages, *, allow_tools: bool):
     return r.json()["choices"][0]["message"]["content"]
 
 
+def stream_llama_chat(messages, *, temperature: float = 0.2, max_tokens: int = 512):
+    payload = {
+        "model": "llama",
+        "messages": messages,
+        "temperature": temperature,
+        "top_p": 0.9,
+        "max_tokens": max_tokens,
+        "stream": True,
+    }
+
+    with requests.post(LLAMA_ENDPOINT, json=payload, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        for raw in r.iter_lines(decode_unicode=True):
+            if not raw:
+                continue
+            line = raw.strip()
+            if not line.startswith("data:"):
+                continue
+            data = line[len("data:") :].strip()
+            if data == "[DONE]":
+                return
+            try:
+                obj = json.loads(data)
+                delta = obj["choices"][0].get("delta", {})
+                chunk = delta.get("content")
+                if chunk:
+                    yield chunk
+            except Exception:
+                continue
+
+
 def should_translate(text: str) -> bool:
     t = text.strip()
 
@@ -78,7 +227,12 @@ def should_translate(text: str) -> bool:
 
 
 
-def translate_with_llm(text: str, src_lang: str | None, tgt_lang: str) -> str:
+def _translate_with_llm_direct(text: str, src_lang: str | None, tgt_lang: str) -> str:
+
+    src = (src_lang or "").strip().lower()
+    tgt = (tgt_lang or "").strip().lower()
+    if src and src != "auto" and tgt and src.split("-")[0] == tgt.split("-")[0]:
+        return text
 
     if not should_translate(text):
         return text
@@ -124,3 +278,43 @@ def translate_with_llm(text: str, src_lang: str | None, tgt_lang: str) -> str:
         raw = call_llama(messages, allow_tools=False)
 
     return clean_translation(raw)
+
+
+def translate_with_llm(
+    text: str,
+    src_lang: str | None,
+    tgt_lang: str,
+    *,
+    priority: Priority = "normal",
+) -> str:
+    # Fast exits happen outside the queue.
+    src = (src_lang or "").strip().lower()
+    tgt = (tgt_lang or "").strip().lower()
+    if src and src != "auto" and tgt and src.split("-")[0] == tgt.split("-")[0]:
+        return text
+
+    if not should_translate(text):
+        return text
+
+    cache_key = (
+        src if src and src != "auto" else "auto",
+        tgt or "",
+        _normalize_for_cache(text),
+    )
+    cached = _TRANSLATION_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if priority not in _PRIORITY_RANK:
+        priority = "normal"
+
+    fut = _TRANSLATION_QUEUE.submit(
+        priority=priority,
+        fn=lambda: _translate_with_llm_direct(text, src_lang, tgt_lang),
+    )
+
+    result = fut.result()
+    # Cache only if we actually translated / produced a non-empty output.
+    if isinstance(result, str) and result and result != text:
+        _TRANSLATION_CACHE.set(cache_key, result)
+    return result

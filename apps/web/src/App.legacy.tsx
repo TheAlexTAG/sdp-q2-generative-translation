@@ -1,3 +1,4 @@
+// Legacy copy kept for reference (replaced by App.tsx).
 import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { translateBatch } from "./auto-translator/translationClient";
@@ -41,11 +42,9 @@ export default function App() {
           {llm.isBusy ? <LlmLoadingPill label="LLM translating…" /> : null}
           {llm.isBusy ? <LlmStatusText /> : null}
           <ConnectionStatus />
-          <LanguageSelect value={targetLang} onChange={setTargetLang} />
           <select
             value={targetLang}
-            onChange={(e) => setTargetLang(e.target.value as LanguageCode)}
-            style={{ display: "none" }}
+            onChange={(e) => setTargetLang(e.target.value)}
           >
             <option value="it">🇮🇹 Italiano</option>
             <option value="en">🇬🇧 English</option>

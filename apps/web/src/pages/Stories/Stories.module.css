@@ -1,0 +1,130 @@
+.page {
+  display: grid;
+  gap: 14px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.shuffle {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, filter 120ms ease;
+}
+
+.shuffle:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  filter: brightness(1.03);
+}
+
+.actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.card {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
+  padding: 16px 16px 6px;
+  animation: fadeUp 220ms ease both;
+  min-height: 360px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metaDot {
+  opacity: 0.55;
+}
+
+.storyTitle {
+  margin: 12px 0 0;
+  font-size: 22px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), #93c5fd, #60a5fa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.storySubtitle {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.body {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.65;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}

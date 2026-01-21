@@ -12,29 +12,97 @@
   width: 100%;
   min-height: 112px;
   padding: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   font: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  outline: none;
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.textarea:focus {
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.18);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   width: fit-content;
   padding: 8px 16px;
   border-radius: 6px;
-  background: #111;
+  background: linear-gradient(90deg, #3b82f6, #2563eb, #60a5fa);
   color: #fff;
   border: none;
   cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
 }
 .button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
+.button[aria-busy="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: rgba(255, 255, 255, 1);
+  border-radius: 999px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .box {
   min-height: 80px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
   padding: 12px;
   white-space: pre-wrap;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.box[data-loading="true"] {
+  position: relative;
+  color: transparent;
+  user-select: none;
+}
+
+.box[data-loading="true"]::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.11),
+    rgba(255, 255, 255, 0.05)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
 }

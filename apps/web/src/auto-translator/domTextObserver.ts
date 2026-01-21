@@ -13,20 +13,33 @@ export type UiString =
       text: string;
     };
 
-let translatedTextNodes = new WeakSet<Text>();
-let translatedPlaceholderEls = new WeakSet<
-  HTMLInputElement | HTMLTextAreaElement
+type TranslatedMark = {
+  lang: string;
+  fingerprint: string;
+};
+
+let translatedTextNodes = new WeakMap<Text, TranslatedMark>();
+let translatedPlaceholderEls = new WeakMap<
+  HTMLInputElement | HTMLTextAreaElement,
+  TranslatedMark
 >();
 
-export function preMarkTranslated(s: UiString) {
-  if (s.kind === "text") {
-    translatedTextNodes.add(s.node);
-  }
+export function getTranslatedMark(s: UiString): TranslatedMark | undefined {
+  if (s.kind === "text") return translatedTextNodes.get(s.node);
+  return translatedPlaceholderEls.get(s.el);
 }
 
-export function markTranslated(s: UiString) {
-  if (s.kind === "text") translatedTextNodes.add(s.node);
-  else translatedPlaceholderEls.add(s.el);
+export function preMarkTranslated(
+  s: UiString,
+  lang: string,
+  fingerprint: string,
+) {
+  if (s.kind === "text") translatedTextNodes.set(s.node, { lang, fingerprint });
+}
+
+export function markTranslated(s: UiString, lang: string, fingerprint: string) {
+  if (s.kind === "text") translatedTextNodes.set(s.node, { lang, fingerprint });
+  else translatedPlaceholderEls.set(s.el, { lang, fingerprint });
 }
 
 function isTranslatableText(raw: string) {
@@ -56,7 +69,6 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
 
   function emitTextNode(textNode: Text) {
     if (!enabled) return;
-    if (translatedTextNodes.has(textNode)) return;
 
     const parent = textNode.parentElement;
     if (!parent) return;
@@ -76,7 +88,6 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
 
   function emitPlaceholder(el: HTMLInputElement | HTMLTextAreaElement) {
     if (!enabled) return;
-    if (translatedPlaceholderEls.has(el)) return;
     if (shouldIgnoreElement(el)) return;
 
     const ph = (el.getAttribute("placeholder") ?? "").trim();
@@ -145,11 +156,12 @@ export function startDomTextObserver(onDetected: (s: UiString) => void) {
 }
 
 export function resetTranslatedState() {
-  // WeakSets cannot be cleared, so we re-create them
+  // WeakMaps cannot be cleared, so we re-create them
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (translatedTextNodes as any) = new WeakSet<Text>();
+  (translatedTextNodes as any) = new WeakMap<Text, TranslatedMark>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (translatedPlaceholderEls as any) = new WeakSet<
-    HTMLInputElement | HTMLTextAreaElement
+  (translatedPlaceholderEls as any) = new WeakMap<
+    HTMLInputElement | HTMLTextAreaElement,
+    TranslatedMark
   >();
 }

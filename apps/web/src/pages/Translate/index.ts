@@ -1,2 +1,2 @@
-export { default } from "./Translate";
-export * from "./Translate";
+export { default } from "./StructuredTranslate";
+export * from "./StructuredTranslate";

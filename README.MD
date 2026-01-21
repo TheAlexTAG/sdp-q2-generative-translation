@@ -207,6 +207,8 @@ http://localhost:5173
 
 ## How the System Works
 
+Full system documentation (architecture, configs, limitations): `docs/SYSTEM.md`.
+
 ### Frontend (Auto Translator)
 
 - Observes DOM mutations

@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:5174",
+        // FastAPI LLM translation service (apps/llm/main.py)
+        target: "http://127.0.0.1:8001",
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api/, ""),
       },

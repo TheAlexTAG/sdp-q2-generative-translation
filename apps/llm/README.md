@@ -16,7 +16,7 @@ Traditional MT models (Marian / OPUS / CTranslate2) are intentionally not used h
 
 - **Model**: LLaMA 3.1 8B Instruct (GGUF)
 - **Inference backend**: llama.cpp (CUDA-enabled)
-- **API style**: OpenAI-compatible `/v1/completions`
+- **API style**: OpenAI-compatible `/v1/chat/completions`
 - **Service framework**: FastAPI
 - **Execution**: Fully local (offline once the model is downloaded)
 
@@ -80,7 +80,7 @@ llama-server.exe `
 
 Expected endpoint:
 
-http://127.0.0.1:7001/v1/completions
+http://127.0.0.1:7001/v1/chat/completions
 
 The FastAPI service does NOT start the LLM backend.
 llama.cpp must already be running.
@@ -131,7 +131,8 @@ Request:
 {
   "text": "Hello guys, how are you doing today?",
   "src_lang": "en",
-  "tgt_lang": "it"
+  "tgt_lang": "it",
+  "priority": "normal"
 }
 ```
 
@@ -157,12 +158,14 @@ Request
     {
       "text": "Save changes",
       "src_lang": "en",
-      "tgt_lang": "it"
+      "tgt_lang": "it",
+      "priority": "critical"
     },
     {
       "text": "Cancel",
       "src_lang": "en",
-      "tgt_lang": "fr"
+      "tgt_lang": "fr",
+      "priority": "normal"
     }
   ]
 }
@@ -175,6 +178,38 @@ Response
   "translations": ["Salva le modifiche", "Annuler"]
 }
 ```
+
+---
+
+## Priority Queue (Request Scheduling)
+
+The backend uses a **single-worker priority queue** before calling llama.cpp.
+This prevents overload and ensures short/high-value UI strings (like headings) can run before long background paragraphs.
+
+Supported priorities:
+
+- `critical`
+- `normal` (default)
+- `background`
+
+Notes:
+
+- This backend intentionally runs with one worker (`workers=1`) to keep llama.cpp load stable and make prioritization deterministic.
+
+---
+
+## Caching (LRU + TTL)
+
+Translations are cached in-memory to avoid repeated work:
+
+- Cache type: **LRU** with a **TTL**
+- Key: `(src_lang, tgt_lang, normalized_text)`
+- Scope: process-local (clears when the backend restarts)
+
+Environment variables:
+
+- `TRANSLATION_CACHE_MAX` (default `5000`)
+- `TRANSLATION_CACHE_TTL_SECONDS` (default `21600` = 6 hours)
 
 ---
 
@@ -212,6 +247,11 @@ The strategy is optimized for short-to-medium UI strings such as:
 - Language support is **model-driven**, not constrained to fixed language pairs
 - The service is intended for **development and experimentation**, not
   large-scale production deployment
+
+Additional limitations:
+
+- Only one llama.cpp call runs at a time from this backend process (queue worker = 1).
+- Caching is memory-only (no persistence).
 
 Because the model is prompted rather than fine-tuned,
 edge cases may still produce unexpected outputs,

@@ -2,10 +2,11 @@ type BatchItem = {
   text: string;
   src_lang: string;
   tgt_lang: string;
+  priority?: "critical" | "normal" | "background";
 };
 
 export async function translateBatch(items: BatchItem[]) {
-  const res = await fetch("http://localhost:8001/translate_batch", {
+  const res = await fetch("/api/translate_batch", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

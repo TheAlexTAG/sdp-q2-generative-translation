@@ -1,20 +1,24 @@
 import { useState } from "react";
 import axios from "axios";
+import { useLlmActivity } from "../../llmActivity";
 import styles from "./Translate.module.css";
 
 export default function Translate() {
   const [src, setSrc] = useState("");
   const [dst, setDst] = useState("");
   const [loading, setLoading] = useState(false);
+  const llm = useLlmActivity();
 
   async function handleTranslate() {
     setLoading(true);
     try {
-      const { data } = await axios.post("/api/translate", {
-        text: src,
-        srcLang: "it",
-        tgtLang: "en",
-      });
+      const { data } = await llm.run(() =>
+        axios.post("/api/translate", {
+          text: src,
+          src_lang: "it",
+          tgt_lang: "en",
+        }),
+      );
       setDst(data.translation);
     } finally {
       setLoading(false);
@@ -35,12 +39,15 @@ export default function Translate() {
       <button
         className={styles.button}
         disabled={loading || !src.trim()}
+        aria-busy={loading}
         onClick={handleTranslate}
       >
         {loading ? "Translating…" : "Translate"}
       </button>
 
-      <div className={styles.box}>{dst}</div>
+      <div className={styles.box} data-loading={loading && !dst}>
+        {dst}
+      </div>
     </div>
   );
 }
