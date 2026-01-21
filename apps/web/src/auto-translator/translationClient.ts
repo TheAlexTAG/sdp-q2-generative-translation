@@ -1,3 +1,8 @@
+/**
+ * Client-side helper for sending batched translation requests
+ * to the backend translation API.
+ */
+
 type BatchItem = {
   text: string;
   src_lang: string;
@@ -5,6 +10,8 @@ type BatchItem = {
   priority?: "critical" | "normal" | "background";
 };
 
+// Sends a batch translation request with timeout and abort support
+// to prevent stalled or overlapping requests.
 export async function translateBatch(
   items: BatchItem[],
   opts?: { signal?: AbortSignal },

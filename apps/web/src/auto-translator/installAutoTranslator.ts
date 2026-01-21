@@ -1,3 +1,10 @@
+/**
+ * Main entry point for installing the automatic UI translation module.
+ *
+ * This module connects DOM detection, prioritization, batching, backend
+ * communication, and safe application of translated content.
+ */
+
 import {
   startDomTextObserver,
   markTranslated,
@@ -20,12 +27,16 @@ type TranslateBatchFn = (
   opts?: { signal?: AbortSignal },
 ) => Promise<{ translations: string[] }>;
 
+// Configuration options provided by the host application at install time.
 export type InstallAutoTranslatorOptions = {
   srcLang: string;
   tgtLang: string;
   translateBatch: TranslateBatchFn;
   flushDelayMs?: number;
 };
+
+// Text fingerprinting is used to detect whether the DOM content has changed
+// between detection and translation, preventing stale updates.
 
 function normalizeForFingerprint(s: string) {
   return s.replace(/\s+/g, " ").trim();
@@ -51,6 +62,8 @@ function normalizeForBackend(s: string) {
     .trim();
 }
 
+// Applies safety checks to model output to ensure UI-appropriate translations
+// (e.g., no explanations, excessive length, or formatting artifacts).
 function sanitizeUiTranslation(original: string, translated: string) {
   translated = translated.replace(/\s+/g, " ").trim();
 
@@ -89,7 +102,7 @@ export function installAutoTranslator({
   let observer: ReturnType<typeof startDomTextObserver> | null = null;
   const abortController = new AbortController();
 
-  // 🔥 RESET EVERYTHING WHEN (RE)INSTALLING
+  // Reset all internal translation state when installing the module.
   resetTranslatedState();
 
   const translationCache = new Map<string, string>();
@@ -143,6 +156,8 @@ export function installAutoTranslator({
     return rect.bottom > 0 && rect.top < window.innerHeight;
   }
 
+  // Assigns translation priority based on UI relevance.
+  // Headings and visible content are translated before background text.
   function classifyPriority(s: UiString): Priority {
     const el = getPriorityTarget(s);
     if (isHeading(el)) return "critical";
@@ -189,6 +204,8 @@ export function installAutoTranslator({
     }, delayMs);
   }
 
+  // Enqueues a detected UI string for translation, handling caching,
+  // priority upgrades, and deduplication across multiple DOM nodes.
   function enqueue(s: UiString) {
     const key = s.text;
 
@@ -205,7 +222,10 @@ export function installAutoTranslator({
     const expectedFingerprint = fingerprintText(currentUiText(s));
 
     const nextPriority = classifyPriority(s);
-    if (pendingByKey.size >= MAX_PENDING_KEYS && nextPriority === "background") {
+    if (
+      pendingByKey.size >= MAX_PENDING_KEYS &&
+      nextPriority === "background"
+    ) {
       return;
     }
 
@@ -305,6 +325,8 @@ export function installAutoTranslator({
     return takeSmallestN(queues[priority], batchSize);
   }
 
+  // Processes queued translation requests by priority, sending batched
+  // requests to the backend and applying results incrementally.
   async function processQueue() {
     if (stopped) return;
     if (running) return;
@@ -317,9 +339,12 @@ export function installAutoTranslator({
 
         let res: { translations: string[] } | null = null;
         try {
-          res = await translateBatch(batch.map((b) => b.item), {
-            signal: abortController.signal,
-          });
+          res = await translateBatch(
+            batch.map((b) => b.item),
+            {
+              signal: abortController.signal,
+            },
+          );
         } catch {
           res = null;
         }
@@ -354,14 +379,19 @@ export function installAutoTranslator({
       running = false;
       if (!stopped) {
         const hasMore =
-          queues.critical.length || queues.normal.length || queues.background.length;
+          queues.critical.length ||
+          queues.normal.length ||
+          queues.background.length;
         if (hasMore) schedule(0);
       }
     }
   }
 
+  // Start observing the DOM and enqueue detected UI strings for translation.
   observer = startDomTextObserver((s) => enqueue(s));
 
+  // Cleanup function to fully stop translation, abort pending requests,
+  // and release all associated resources.
   return () => {
     stopped = true;
     abortController.abort();

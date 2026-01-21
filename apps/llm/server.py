@@ -1,3 +1,12 @@
+"""
+Backend-side translation logic built on top of a locally running llama.cpp server.
+
+This module is responsible for:
+- managing translation requests through a priority queue,
+- avoiding duplicate work via caching,
+- interacting with the LLM through an OpenAI-compatible API,
+- enforcing safe, UI-oriented translation behavior.
+"""
 import requests
 import json
 import re
@@ -22,13 +31,18 @@ _PRIORITY_RANK: dict[Priority, int] = {
 
 
 @dataclass(order=True)
+# Internal work item used by the priority queue.
+# Each item wraps a callable that performs a translation and a Future
+# used to return the result asynchronously.
 class _QueuedWorkItem:
     priority: int
     seq: int
     future: Future[str] = field(compare=False)
     fn: Callable[[], str] = field(compare=False)
 
-
+# Priority-based work queue used to serialize access to the LLM.
+# Higher-priority UI strings (e.g. headings) are processed before
+# background content to improve perceived responsiveness.
 class _PriorityWorkQueue:
     def __init__(self, *, workers: int = 1):
         self._seq = 0
@@ -73,12 +87,14 @@ class _PriorityWorkQueue:
             finally:
                 self._q.task_done()
 
-
+# Global translation queue instance.
+# The number of worker threads can be configured via environment variables.
 _TRANSLATION_QUEUE = _PriorityWorkQueue(
     workers=int(os.environ.get("LLM_QUEUE_WORKERS", "1") or "1")
 )
 
-
+# Normalizes text before using it as a cache key, ensuring that
+# equivalent strings map to the same cached translation.
 def _normalize_for_cache(text: str) -> str:
     return (
         text.replace("\u2014", " - ")
@@ -90,7 +106,8 @@ def _normalize_for_cache(text: str) -> str:
         .strip()
     )
 
-
+# Simple thread-safe LRU cache with TTL for translation results.
+# This reduces repeated LLM calls for identical UI strings.
 class _TranslationCache:
     def __init__(self, *, max_entries: int, ttl_seconds: float):
         self._max_entries = max(1, int(max_entries))
@@ -124,6 +141,8 @@ _CACHE_MAX = int(os.environ.get("TRANSLATION_CACHE_MAX", "5000"))
 _CACHE_TTL = float(os.environ.get("TRANSLATION_CACHE_TTL_SECONDS", str(6 * 60 * 60)))
 _TRANSLATION_CACHE = _TranslationCache(max_entries=_CACHE_MAX, ttl_seconds=_CACHE_TTL)
 
+# Detects whether the model output corresponds to a tool-call JSON
+# instead of a final text response.
 def is_tool_call(text: str) -> bool:
     text = text.strip()
     if not text.startswith("{"):
@@ -134,6 +153,8 @@ def is_tool_call(text: str) -> bool:
     except Exception:
         return False
 
+# Post-processes raw LLM output to enforce UI-friendly translations.
+# Any explanations or meta text produced by the model are removed.
 def clean_translation(text: str) -> str:
     t = (
         text.replace("<<TEXT_TO_TRANSLATE>>", "")
@@ -165,6 +186,8 @@ def clean_translation(text: str) -> str:
 
     return t
 
+# Performs a synchronous request to the local llama.cpp server
+# using the OpenAI-compatible chat completion endpoint.
 def call_llama(messages, *, allow_tools: bool, max_tokens: int = 256):
     payload = {
         "model": "llama",
@@ -182,7 +205,8 @@ def call_llama(messages, *, allow_tools: bool, max_tokens: int = 256):
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
-
+# Streams tokens from the llama.cpp server using Server-Sent Events (SSE).
+# Used only for chat-style interactions, not UI translation.
 def stream_llama_chat(messages, *, temperature: float = 0.2, max_tokens: int = 512):
     payload = {
         "model": "llama",
@@ -213,7 +237,8 @@ def stream_llama_chat(messages, *, temperature: float = 0.2, max_tokens: int = 5
             except Exception:
                 continue
 
-
+# Heuristics to skip translation for identifiers, codes, or
+# very short navigation labels that should remain unchanged.
 def should_translate(text: str) -> bool:
     t = text.strip()
 
@@ -228,7 +253,8 @@ def should_translate(text: str) -> bool:
     return True
 
 
-
+# Core translation routine that builds a constrained prompt and
+# invokes the LLM to perform faithful machine translation.
 def _translate_with_llm_direct(text: str, src_lang: str | None, tgt_lang: str) -> str:
 
     src = (src_lang or "").strip().lower()
@@ -273,7 +299,8 @@ def _translate_with_llm_direct(text: str, src_lang: str | None, tgt_lang: str) -
 
     return clean_translation(raw)
 
-
+# Blocking helper that submits a translation request and waits
+# for the result. Used for simple, synchronous API endpoints.
 def translate_with_llm(
     text: str,
     src_lang: str | None,
@@ -290,7 +317,8 @@ def translate_with_llm(
 
     return fut.result()
 
-
+# Submits a translation request to the priority queue and returns
+# a Future representing the pending result.
 def submit_translation_with_llm(
     text: str,
     src_lang: str | None,

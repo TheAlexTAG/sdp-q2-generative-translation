@@ -1,3 +1,10 @@
+"""
+FastAPI application exposing HTTP endpoints for the local translation service.
+
+This module defines REST APIs used by the frontend to submit translation
+requests and to check the health of the LLM backend.
+"""
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
@@ -9,6 +16,8 @@ import threading
 import time
 
 app = FastAPI(title="LLM-based Translation Service")
+# CORS configuration to allow requests from the local frontend
+# development servers.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -20,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request models defining the expected payloads for translation APIs.
 
 class Req(BaseModel):
     text: str
@@ -40,7 +50,8 @@ class ChatMessage(BaseModel):
 class ChatReq(BaseModel):
     messages: List[ChatMessage]
 
-
+# Translates a single UI string using the local LLM.
+# This endpoint blocks until the translation is available.
 @app.post("/translate")
 def translate(req: Req):
     return {
@@ -52,7 +63,8 @@ def translate(req: Req):
         )
     }
 
-
+# Translates multiple UI strings in parallel.
+# Used by the frontend to batch requests and reduce overhead.
 @app.post("/translate_batch")
 def translate_batch(req: BatchReq):
     futures = [
@@ -69,6 +81,8 @@ def translate_batch(req: BatchReq):
     }
 
 
+# Streaming endpoint used for chat-style interactions with the LLM.
+# Not used by the automatic UI translation pipeline.
 @app.post("/chat_stream")
 def chat_stream(req: ChatReq):
     def gen():
@@ -79,6 +93,7 @@ def chat_stream(req: ChatReq):
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+# Basic health check for the translation backend.
 @app.get("/health")
 def health():
     return {
@@ -88,6 +103,8 @@ def health():
     }
 
 
+# Checks reachability of the local llama.cpp server.
+# Results are cached briefly to avoid excessive polling.
 @app.get("/health/llama")
 def health_llama():
     base = "http://127.0.0.1:7001"

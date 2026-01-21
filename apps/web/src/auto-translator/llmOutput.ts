@@ -1,8 +1,17 @@
+/**
+ * Utilities for extracting usable text from LLM responses.
+ *
+ * The model may return plain text, quoted strings, or tool-call JSON;
+ * this module normalizes those outputs for UI usage.
+ */
+
 export type ExtractResult =
   | { kind: "ok"; text: string }
   | { kind: "toolcall"; raw: string }
   | { kind: "empty"; raw: string };
 
+// Extracts clean text from LLM output while filtering out tool calls
+// and empty or malformed responses.
 export function extractPlainText(output: string): ExtractResult {
   const trimmed = output.trim();
 
